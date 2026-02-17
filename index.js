@@ -38,16 +38,19 @@ app.use(
   })
 );
 
-/* -------------------- SESSION -------------------- */
+/* -------------------- SESSION (with production‑ready cookie) -------------------- */
+const isProduction = process.env.NODE_ENV === "production";
+
 app.use(
   session({
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: true, // set to true in production (HTTPS)
+      secure: isProduction,          // true on HTTPS
       httpOnly: true,
-      sameSite: "None",
+      sameSite: isProduction ? "none" : "lax", // allow cross‑site in production
+      maxAge: 24 * 60 * 60 * 1000,   // 1 day (adjust as needed)
     },
   })
 );
@@ -75,7 +78,7 @@ passport.use(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: process.env.GOOGLE_CALLBACK_URL, // <--- use full URI
+      callbackURL: process.env.GOOGLE_CALLBACK_URL,
     },
     async (_, __, profile, done) => {
       try {
@@ -89,7 +92,7 @@ passport.use(
               profile.displayName.replace(/\s+/g, "").toLowerCase() +
               Math.floor(Math.random() * 1000),
             email: profile.emails[0].value,
-            password: Math.random().toString(36).slice(-8), // dummy password
+            password: Math.random().toString(36).slice(-8),
             profileImage: {
               public_id: "",
               url: profile.photos[0]?.value || "",
@@ -105,22 +108,18 @@ passport.use(
   )
 );
 
-/* -------------------- GOOGLE ROUTES (UPDATED) -------------------- */
+/* -------------------- GOOGLE ROUTES -------------------- */
 
 // Initiate Google OAuth – optionally accept ?familyId=xxx
-app.get(
-  "/auth/google",
-  (req, res, next) => {
-    // If familyId is provided in query, pass it as state
-    const state = req.query.familyId
-      ? JSON.stringify({ familyId: req.query.familyId })
-      : undefined;
-    passport.authenticate("google", {
-      scope: ["profile", "email"],
-      state: state,
-    })(req, res, next);
-  }
-);
+app.get("/auth/google", (req, res, next) => {
+  const state = req.query.familyId
+    ? JSON.stringify({ familyId: req.query.familyId })
+    : undefined;
+  passport.authenticate("google", {
+    scope: ["profile", "email"],
+    state: state,
+  })(req, res, next);
+});
 
 // Callback after Google authentication
 app.get(
@@ -135,11 +134,11 @@ app.get(
         { expiresIn: "7d" }
       );
 
-      // 2. Set HTTP‑only cookie (optional)
+      // 2. Set HTTP‑only cookie (production‑ready)
       res.cookie("token", token, {
         httpOnly: true,
-        secure: true, // true in production with HTTPS
-        sameSite: "None",
+        secure: isProduction,          // true on HTTPS
+        sameSite: isProduction ? "none" : "lax",
         maxAge: 7 * 24 * 60 * 60 * 1000,
       });
 
@@ -165,7 +164,7 @@ app.get(
           if (!alreadyInCircle) {
             req.user.familyCircle.push({
               userId: familyId,
-              role: "Viewer", // default role – adjust as needed
+              role: "Viewer",
             });
             await req.user.save();
           }
@@ -177,7 +176,7 @@ app.get(
           if (!userInInviterCircle) {
             inviter.familyCircle.push({
               userId: req.user._id,
-              role: "Viewer", // or another role
+              role: "Viewer",
             });
             await inviter.save();
           }
