@@ -45,9 +45,9 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: false, // set to true in production (HTTPS)
+      secure: true, // set to true in production (HTTPS)
       httpOnly: true,
-      sameSite: "lax",
+      sameSite: "None",
     },
   })
 );
@@ -138,8 +138,8 @@ app.get(
       // 2. Set HTTP‑only cookie (optional)
       res.cookie("token", token, {
         httpOnly: true,
-        secure: false, // true in production with HTTPS
-        sameSite: "lax",
+        secure: true, // true in production with HTTPS
+        sameSite: "None",
         maxAge: 7 * 24 * 60 * 60 * 1000,
       });
 
