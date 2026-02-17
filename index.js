@@ -123,7 +123,7 @@ app.get("/auth/google", (req, res, next) => {
 
 // Callback after Google authentication
 app.get(
-  "https://root-backend-bmfx.onrender.com/auth/google/callback",
+  "/auth/google/callback",
   passport.authenticate("google", { failureRedirect: "/" }),
   async (req, res) => {
     try {
