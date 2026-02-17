@@ -3,33 +3,28 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { v2 as cloudinary } from "cloudinary";
 import fs from "fs";
-import dotenv from "dotenv";
-
-dotenv.config();
 
 // ================= CLOUDINARY CONFIG =================
 cloudinary.config({
   cloud_name: process.env.CLOUD_NAME,
-  api_key: process.env.API_KEY,
-  api_secret: process.env.API_SECRET
+  api_key: process.env.CLOUD_API_KEY,
+  api_secret: process.env.CLOUD_API_SECRET,
 });
 
 // ================= TOKEN GENERATOR =================
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: "30d"
+    expiresIn: "30d",
   });
 };
 
 // ================= COOKIE OPTIONS =================
 const cookieOptions = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: "strict",
-  maxAge: 30 * 24 * 60 * 60 * 1000
+  secure: true, // always true in production (Render is HTTPS)
+  sameSite: "none", // IMPORTANT for cross-origin (Vercel → Render)
+  maxAge: 30 * 24 * 60 * 60 * 1000,
 };
-
-
 
 // ================= REGISTER =================
 export const registerUser = async (req, res) => {
@@ -39,7 +34,7 @@ export const registerUser = async (req, res) => {
     if (!username || !email || !password) {
       return res.status(400).json({
         success: false,
-        message: "All fields are required"
+        message: "All fields are required",
       });
     }
 
@@ -47,18 +42,17 @@ export const registerUser = async (req, res) => {
     if (userExists) {
       return res.status(400).json({
         success: false,
-        message: "User already exists"
+        message: "User already exists",
       });
     }
 
-    // 🔐 HASH PASSWORD HERE
     const salt = await bcrypt.genSalt(12);
     const hashedPassword = await bcrypt.hash(password, salt);
 
     const user = await User.create({
       username,
       email,
-      password: hashedPassword
+      password: hashedPassword,
     });
 
     const token = generateToken(user._id);
@@ -70,19 +64,17 @@ export const registerUser = async (req, res) => {
       user: {
         id: user._id,
         username: user.username,
-        email: user.email
-      }
+        email: user.email,
+      },
     });
-
   } catch (error) {
+    console.error("❌ Register Error:", error);
     res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
     });
   }
 };
-
-
 
 // ================= LOGIN =================
 export const loginUser = async (req, res) => {
@@ -92,26 +84,23 @@ export const loginUser = async (req, res) => {
     if (!email || !password) {
       return res.status(400).json({
         success: false,
-        message: "Email and password required"
+        message: "Email and password required",
       });
     }
 
     const user = await User.findOne({ email });
-
     if (!user) {
       return res.status(401).json({
         success: false,
-        message: "Invalid credentials"
+        message: "Invalid credentials",
       });
     }
 
-    // 🔐 COMPARE PASSWORD HERE
     const isMatch = await bcrypt.compare(password, user.password);
-
     if (!isMatch) {
       return res.status(401).json({
         success: false,
-        message: "Invalid credentials"
+        message: "Invalid credentials",
       });
     }
 
@@ -124,29 +113,33 @@ export const loginUser = async (req, res) => {
       user: {
         id: user._id,
         username: user.username,
-        email: user.email
-      }
+        email: user.email,
+      },
     });
-
   } catch (error) {
+    console.error("❌ Login Error:", error);
     res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
     });
   }
 };
 
-
-
 // ================= UPDATE USER =================
 export const updateUser = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
 
+    const user = await User.findById(req.user._id);
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: "User not found"
+        message: "User not found",
       });
     }
 
@@ -163,7 +156,7 @@ export const updateUser = async (req, res) => {
       if (emailExists && emailExists._id.toString() !== user._id.toString()) {
         return res.status(400).json({
           success: false,
-          message: "Email already in use"
+          message: "Email already in use",
         });
       }
       user.email = email;
@@ -171,7 +164,6 @@ export const updateUser = async (req, res) => {
     }
 
     if (password) {
-      // 🔐 HASH NEW PASSWORD HERE
       const salt = await bcrypt.genSalt(12);
       user.password = await bcrypt.hash(password, salt);
       updated = true;
@@ -179,29 +171,32 @@ export const updateUser = async (req, res) => {
 
     // ================= PROFILE IMAGE =================
     if (req.file) {
-      if (user.profileImage.public_id) {
+      if (user.profileImage?.public_id) {
         await cloudinary.uploader.destroy(user.profileImage.public_id);
       }
 
       const result = await cloudinary.uploader.upload(req.file.path, {
         folder: "profiles",
         width: 300,
-        crop: "scale"
+        crop: "scale",
       });
 
       user.profileImage = {
         public_id: result.public_id,
-        url: result.secure_url
+        url: result.secure_url,
       };
 
       updated = true;
-      fs.unlinkSync(req.file.path);
+
+      if (fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
     }
 
     if (!updated) {
       return res.status(400).json({
         success: false,
-        message: "No fields provided to update"
+        message: "No fields provided to update",
       });
     }
 
@@ -214,21 +209,22 @@ export const updateUser = async (req, res) => {
         id: user._id,
         username: user.username,
         email: user.email,
-        profileImage: user.profileImage
-      }
+        profileImage: user.profileImage,
+      },
     });
-
   } catch (error) {
-    if (req.file) fs.unlinkSync(req.file.path);
+    console.error("❌ Update User Error:", error);
+
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
 
     res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
     });
   }
 };
-
-
 
 // ================= LOGOUT =================
 export const logoutUser = async (req, res) => {
@@ -236,51 +232,47 @@ export const logoutUser = async (req, res) => {
     res.cookie("token", "", {
       httpOnly: true,
       expires: new Date(0),
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict"
+      secure: true,
+      sameSite: "none",
     });
 
     res.status(200).json({
       success: true,
-      message: "Logged out successfully"
+      message: "Logged out successfully",
     });
-
   } catch (error) {
+    console.error("❌ Logout Error:", error);
     res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
     });
   }
 };
 
-
-
 // ================= GET PROFILE =================
 export const getProfile = async (req, res) => {
   try {
-    const user = req.user;
-
-    if (!user) {
-      return res.status(404).json({
+    if (!req.user) {
+      return res.status(401).json({
         success: false,
-        message: "User not found"
+        message: "Unauthorized",
       });
     }
 
     res.status(200).json({
       success: true,
       user: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        profileImage: user.profileImage
-      }
+        id: req.user._id,
+        username: req.user.username,
+        email: req.user.email,
+        profileImage: req.user.profileImage,
+      },
     });
-
   } catch (error) {
+    console.error("❌ Get Profile Error:", error);
     res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
     });
   }
 };
