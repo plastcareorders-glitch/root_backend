@@ -1,5 +1,7 @@
 import express from "express";
 import dotenv from "dotenv";
+import fs from "fs";
+import path from "path";
 import connectDb from "./db/mongoose.js";
 import Authrouter from "./routes/Auth.routes.js";
 import cookieParser from "cookie-parser";
@@ -16,6 +18,13 @@ import User from "./models/UserAuth.model.js";
 
 dotenv.config();
 const app = express();
+
+/* -------------------- CREATE UPLOADS FOLDER IF NOT EXISTS -------------------- */
+const uploadsDir = path.resolve("./uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+  console.log("📁 Uploads folder created.");
+}
 
 /* -------------------- DB -------------------- */
 connectDb();
@@ -50,7 +59,7 @@ app.use(
       secure: isProduction,          // true on HTTPS
       httpOnly: true,
       sameSite: isProduction ? "none" : "lax", // allow cross‑site in production
-      maxAge: 24 * 60 * 60 * 1000,   // 1 day (adjust as needed)
+      maxAge: 24 * 60 * 60 * 1000,   // 1 day
     },
   })
 );
@@ -120,9 +129,10 @@ app.get("/auth/google", (req, res, next) => {
     state: state,
   })(req, res, next);
 });
+
+// Global error handler
 app.use((err, req, res, next) => {
   console.error("🔥 GLOBAL ERROR:", err);
-
   res.status(err.status || 500).json({
     success: false,
     message: err.message || "Server Error",
@@ -145,7 +155,7 @@ app.get(
       // 2. Set HTTP‑only cookie (production‑ready)
       res.cookie("token", token, {
         httpOnly: true,
-        secure: isProduction,          // true on HTTPS
+        secure: isProduction,
         sameSite: isProduction ? "none" : "lax",
         maxAge: 7 * 24 * 60 * 60 * 1000,
       });
