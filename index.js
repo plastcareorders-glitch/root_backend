@@ -120,6 +120,14 @@ app.get("/auth/google", (req, res, next) => {
     state: state,
   })(req, res, next);
 });
+app.use((err, req, res, next) => {
+  console.error("🔥 GLOBAL ERROR:", err);
+
+  res.status(err.status || 500).json({
+    success: false,
+    message: err.message || "Server Error",
+  });
+});
 
 // Callback after Google authentication
 app.get(
