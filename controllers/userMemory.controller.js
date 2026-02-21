@@ -21,29 +21,35 @@ export const createMemory = async (req, res) => {
       });
     }
 
+    // ✅ Make images required
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Images are required",
+      });
+    }
+
+    if (req.files.length > 10) {
+      return res.status(400).json({
+        success: false,
+        message: "Max 10 images allowed",
+      });
+    }
+
     let images = [];
 
-    if (req.files?.length > 0) {
-      if (req.files.length > 10) {
-        return res.status(400).json({
-          success: false,
-          message: "Max 10 images allowed",
-        });
-      }
+    for (const file of req.files) {
+      const result = await cloudinary.uploader.upload(file.path, {
+        folder: "memories",
+      });
 
-      for (const file of req.files) {
-        const result = await cloudinary.uploader.upload(file.path, {
-          folder: "memories",
-        });
+      images.push({
+        publicId: result.public_id,
+        url: result.secure_url,
+      });
 
-        images.push({
-          publicId: result.public_id,
-          url: result.secure_url,
-        });
-
-        if (fs.existsSync(file.path)) {
-          fs.unlinkSync(file.path);
-        }
+      if (fs.existsSync(file.path)) {
+        fs.unlinkSync(file.path);
       }
     }
 
@@ -79,6 +85,7 @@ export const createMemory = async (req, res) => {
     });
   }
 };
+
 
 // ================= FETCH ALL MEMORIES =================
 export const fetchMemories = async (req, res) => {

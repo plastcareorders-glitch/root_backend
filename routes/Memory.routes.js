@@ -10,6 +10,8 @@ import {
 
 import upload from "../middlewares/uploadMiddleware.js";
 import { checkAuth } from "../middlewares/checkAuth.js";
+import { createBlog, deleteBlog, updateBlog } from "../controllers/admin/admin.controller.js";
+import { checkAdmin } from "../middlewares/checkAdmin.js";
 // 👆 assumes your JWT middleware is named "protect"
 
 export const memoryRouter = express.Router();
@@ -64,3 +66,12 @@ memoryRouter.delete(
     checkAuth,
     deleteMemory
 );
+
+memoryRouter.post(
+    "/create-blog",
+    checkAdmin,
+    upload.array("images", 10),
+    createBlog
+);
+memoryRouter.put('/update-blog/:id',checkAdmin,upload.array("images", 10),updateBlog)
+memoryRouter.delete('/delete-blog/:id',checkAdmin,deleteBlog)

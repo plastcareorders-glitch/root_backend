@@ -22,7 +22,7 @@ const generateToken = (id) => {
 const cookieOptions = {
   httpOnly: true,
   secure: true, // always true in production (Render is HTTPS)
-  sameSite: "none", // IMPORTANT for cross-origin (Vercel → Render)
+  sameSite: "lax", // IMPORTANT for cross-origin (Vercel → Render)
   maxAge: 30 * 24 * 60 * 60 * 1000,
 };
 
