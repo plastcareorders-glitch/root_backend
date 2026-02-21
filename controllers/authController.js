@@ -20,9 +20,11 @@ const generateToken = (id) => {
 
 // ================= COOKIE OPTIONS =================
 const cookieOptions = {
- httpOnly: true, secure: isProduction, sameSite: isProduction ? "none" : "lax", maxAge: 7 * 24 * 60 * 60 * 1000,
+  httpOnly: true,
+  secure: true,          // MUST be true in production
+  sameSite: "none",      // MUST be none for cross-origin
+  maxAge: 7 * 24 * 60 * 60 * 1000,
 };
-
 // ================= REGISTER =================
 export const registerUser = async (req, res) => {
   try {
