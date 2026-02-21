@@ -17,12 +17,8 @@ const generateToken = (id) => {
 
 // ================= COOKIE OPTIONS =================
 const cookieOptions = {
-  httpOnly: true,
-  secure: true,        // true in production (HTTPS)
-  sameSite: "none",    // required for cross-origin (Vercel → Render)
-  maxAge: 30 * 24 * 60 * 60 * 1000,
+ httpOnly: true, secure: isProduction, sameSite: isProduction ? "none" : "lax", maxAge: 7 * 24 * 60 * 60 * 1000,
 };
-
 export const registerInviteUser = async (req, res) => {
   try {
     const { role, userId } = req.params;
